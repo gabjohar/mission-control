@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chloé Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0f;
+            color: #e4e4e7;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            padding-bottom: 5rem;
+        }
+        
+        header {
+            border-bottom: 1px solid #27272a;
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #f472b6 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+        
+        .subtitle { color: #71717a; font-size: 0.95rem; }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .card {
+            background: #18181b;
+            border: 1px solid #27272a;
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+        
+        .card h2 {
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #a1a1aa;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-indicator.offline {
+            background: #ef4444;
+            animation: none;
+        }
+        
+        .status-indicator.stale {
+            background: #eab308;
+            animation: none;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #27272a;
+        }
+        
+        .metric:last-child { border-bottom: none; }
+        
+        .metric-label { color: #71717a; font-size: 0.9rem; }
+        
+        .metric-value {
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 0.9rem;
+            color: #e4e4e7;
+        }
+        
+        .metric-value.highlight { color: #f472b6; }
+        .metric-value.success { color: #22c55e; }
+        
+        .progress-bar {
+            height: 6px;
+            background: #27272a;
+            border-radius: 3px;
+            margin-top: 0.5rem;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #f472b6, #a78bfa);
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-fill.warning { background: linear-gradient(90deg, #eab308, #f59e0b); }
+        .progress-fill.danger { background: linear-gradient(90deg, #ef4444, #f97316); }
+        
+        .activity-list { list-style: none; }
+        
+        .activity-item {
+            padding: 0.875rem 0;
+            border-bottom: 1px solid #27272a;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+        
+        .activity-item:last-child { border-bottom: none; }
+        
+        .activity-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+        
+        .activity-icon.message { background: rgba(244, 114, 182, 0.1); }
+        .activity-icon.tool { background: rgba(167, 139, 250, 0.1); }
+        .activity-icon.system { background: rgba(34, 197, 94, 0.1); }
+        .activity-icon.task { background: rgba(234, 179, 8, 0.1); }
+        
+        .activity-content { flex: 1; }
+        
+        .activity-title {
+            font-size: 0.9rem;
+            color: #e4e4e7;
+            margin-bottom: 0.25rem;
+        }
+        
+        .activity-meta { font-size: 0.8rem; color: #71717a; }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #71717a;
+        }
+        
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+        
+        .refresh-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #18181b;
+            border-top: 1px solid #27272a;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.875rem;
+            color: #71717a;
+        }
+        
+        .refresh-btn {
+            background: linear-gradient(135deg, #f472b6 0%, #a78bfa 100%);
+            border: none;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: opacity 0.2s;
+        }
+        
+        .refresh-btn:hover { opacity: 0.9; }
+        .refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .tag {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        
+        .tag.active { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+        .tag.pending { background: rgba(234, 179, 8, 0.1); color: #eab308; }
+        .tag.completed { background: rgba(100, 116, 139, 0.1); color: #64748b; }
+        
+        .error-message {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🦉 Chloé Dashboard</h1>
+            <p class="subtitle">Real-time view of agent status, activity, and scheduled tasks</p>
+        </header>
+        
+        <div id="error-container"></div>
+        
+        <div class="grid">
+            <!-- Session Status -->
+            <div class="card">
+                <h2>
+                    <span class="status-indicator" id="status-dot"></span>
+                    Session Status
+                    <span class="connection-status" id="connection-status"></span>
+                </h2>
+                <div class="metric">
+                    <span class="metric-label">Status</span>
+                    <span class="metric-value highlight" id="status">Loading...</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Model</span>
+                    <span class="metric-value" id="model">Loading...</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Session ID</span>
+                    <span class="metric-value" id="session-id">Loading...</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Last Update</span>
+                    <span class="metric-value" id="last-update">Loading...</span>
+                </div>
+            </div>
+            
+            <!-- Token Usage -->
+            <div class="card">
+                <h2>🧮 Token Usage</h2>
+                <div class="metric">
+                    <span class="metric-label">Context Used</span>
+                    <span class="metric-value" id="context-used">Loading...</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="context-bar" style="width: 0%"></div>
+                </div>
+                <div class="metric" style="margin-top: 1rem;">
+                    <span class="metric-label">Tokens In / Out</span>
+                    <span class="metric-value" id="tokens-io">Loading...</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Cache Hit Rate</span>
+                    <span class="metric-value success" id="cache-rate">Loading...</span>
+                </div>
+            </div>
+            
+            <!-- Usage Quota -->
+            <div class="card">
+                <h2>📊 Usage Quota</h2>
+                <div class="metric">
+                    <span class="metric-label">Daily Remaining</span>
+                    <span class="metric-value" id="daily-remaining">Loading...</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="daily-bar" style="width: 0%"></div>
+                </div>
+                <div class="metric" style="margin-top: 1rem;">
+                    <span class="metric-label">Weekly Remaining</span>
+                    <span class="metric-value" id="weekly-remaining">Loading...</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="weekly-bar" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Current Activity -->
+        <div class="card" style="margin-bottom: 1.5rem;">
+            <h2>⚡ Recent Activity</h2>
+            <ul class="activity-list" id="activity-list">
+                <li class="empty-state">
+                    <div class="empty-state-icon">⏳</div>
+                    <p>Loading activity...</p>
+                </li>
+            </ul>
+        </div>
+        
+        <!-- Scheduled Tasks -->
+        <div class="card">
+            <h2>📅 Scheduled Tasks</h2>
+            <ul class="activity-list" id="task-list">
+                <li class="empty-state">
+                    <div class="empty-state-icon">⏳</div>
+                    <p>Loading tasks...</p>
+                </li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="refresh-bar">
+        <span>Last synced: <span id="last-synced">Never</span></span>
+        <button class="refresh-btn" id="refresh-btn" onclick="refreshData()">Refresh</button>
+    </div>
+    
+    <script>
+        // Supabase configuration - you'll fill this in after creating your project
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        
+        let supabase;
+        
+        function initSupabase() {
+            if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+                showError('Dashboard not configured. Please set your Supabase URL and anon key in the script.');
+                return false;
+            }
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            return true;
+        }
+        
+        function showError(message) {
+            const container = document.getElementById('error-container');
+            container.innerHTML = `<div class="error-message">⚠️ ${message}</div>`;
+        }
+        
+        function formatTimeAgo(timestamp) {
+            if (!timestamp) return 'Unknown';
+            const date = new Date(timestamp);
+            const now = new Date();
+            const seconds = Math.floor((now - date) / 1000);
+            
+            if (seconds < 60) return 'Just now';
+            if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+            if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+            return `${Math.floor(seconds / 86400)}d ago`;
+        }
+        
+        async function fetchSessionStatus() {
+            if (!supabase) return null;
+            
+            const { data, error } = await supabase
+                .from('session_status')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+            
+            if (error) {
+                console.error('Error fetching session status:', error);
+                return null;
+            }
+            
+            return data;
+        }
+        
+        async function fetchActivity() {
+            if (!supabase) return [];
+            
+            const { data, error } = await supabase
+                .from('activity_log')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(10);
+            
+            if (error) {
+                console.error('Error fetching activity:', error);
+                return [];
+            }
+            
+            return data || [];
+        }
+        
+        async function fetchTasks() {
+            if (!supabase) return [];
+            
+            const { data, error } = await supabase
+                .from('scheduled_tasks')
+                .select('*')
+                .order('next_run', { ascending: true });
+            
+            if (error) {
+                console.error('Error fetching tasks:', error);
+                return [];
+            }
+            
+            return data || [];
+        }
+        
+        function updateStatus(data) {
+            const statusDot = document.getElementById('status-dot');
+            
+            if (!data) {
+                statusDot.classList.add('offline');
+                document.getElementById('status').textContent = 'Offline';
+                document.getElementById('connection-status').textContent = '⚠️ No data';
+                return;
+            }
+            
+            // Check if data is stale (> 5 minutes old)
+            const lastUpdate = new Date(data.created_at);
+            const now = new Date();
+            const minutesSinceUpdate = (now - lastUpdate) / 60000;
+            
+            if (minutesSinceUpdate > 5) {
+                statusDot.classList.add('stale');
+                document.getElementById('connection-status').textContent = '⚠️ Stale';
+            } else {
+                statusDot.classList.remove('stale', 'offline');
+                document.getElementById('connection-status').textContent = '● Live';
+            }
+            
+            document.getElementById('status').textContent = data.status || 'Unknown';
+            document.getElementById('model').textContent = data.model || 'Unknown';
+            document.getElementById('session-id').textContent = data.session_id ? 
+                data.session_id.substring(0, 20) + '...' : 'Unknown';
+            document.getElementById('last-update').textContent = formatTimeAgo(data.created_at);
+            
+            // Token usage
+            const contextPercent = data.context_percent || 0;
+            document.getElementById('context-used').textContent = 
+                `${data.context_used || '0'} / ${data.context_total || '200k'} (${contextPercent}%)`;
+            
+            const contextBar = document.getElementById('context-bar');
+            contextBar.style.width = `${contextPercent}%`;
+            contextBar.className = 'progress-fill';
+            if (contextPercent > 80) contextBar.classList.add('danger');
+            else if (contextPercent > 50) contextBar.classList.add('warning');
+            
+            document.getElementById('tokens-io').textContent = 
+                `${data.tokens_in || 0} / ${data.tokens_out || 0}`;
+            document.getElementById('cache-rate').textContent = data.cache_rate || '0%';
+            
+            // Quota
+            const dailyPercent = parseInt(data.daily_remaining) || 0;
+            document.getElementById('daily-remaining').textContent = 
+                `${data.daily_remaining || '0%'} (${data.daily_time || '0h'})`;
+            document.getElementById('daily-bar').style.width = `${dailyPercent}%`;
+            
+            const weeklyPercent = parseInt(data.weekly_remaining) || 0;
+            document.getElementById('weekly-remaining').textContent = 
+                `${data.weekly_remaining || '0%'} (${data.weekly_time || '0d'})`;
+            document.getElementById('weekly-bar').style.width = `${weeklyPercent}%`;
+        }
+        
+        function updateActivity(activities) {
+            const list = document.getElementById('activity-list');
+            
+            if (!activities || activities.length === 0) {
+                list.innerHTML = `
+                    <li class="empty-state">
+                        <div class="empty-state-icon">💤</div>
+                        <p>No recent activity</p>
+                    </li>
+                `;
+                return;
+            }
+            
+            const iconMap = {
+                message: '💬',
+                tool: '🔧',
+                system: '⚙️',
+                task: '⏰',
+                error: '❌'
+            };
+            
+            list.innerHTML = activities.map(a => `
+                <li class="activity-item">
+                    <div class="activity-icon ${a.type}">${iconMap[a.type] || '•'}</div>
+                    <div class="activity-content">
+                        <div class="activity-title">${a.title}</div>
+                        <div class="activity-meta">${formatTimeAgo(a.created_at)}${a.meta ? ' • ' + a.meta : ''}</div>
+                    </div>
+                </li>
+            `).join('');
+        }
+        
+        function updateTasks(tasks) {
+            const list = document.getElementById('task-list');
+            
+            if (!tasks || tasks.length === 0) {
+                list.innerHTML = `
+                    <li class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <p>No scheduled tasks</p>
+                    </li>
+                `;
+                return;
+            }
+            
+            list.innerHTML = tasks.map(t => `
+                <li class="activity-item">
+                    <div class="activity-icon task">⏰</div>
+                    <div class="activity-content">
+                        <div class="activity-title">${t.name}</div>
+                        <div class="activity-meta">
+                            ${t.schedule} • <span class="tag ${t.status}">${t.status}</span>
+                            ${t.next_run ? ' • Next: ' + formatTimeAgo(t.next_run) : ''}
+                        </div>
+                    </div>
+                </li>
+            `).join('');
+        }
+        
+        async function refreshData() {
+            const btn = document.getElementById('refresh-btn');
+            btn.disabled = true;
+            btn.textContent = 'Loading...';
+            
+            try {
+                const [status, activities, tasks] = await Promise.all([
+                    fetchSessionStatus(),
+                    fetchActivity(),
+                    fetchTasks()
+                ]);
+                
+                updateStatus(status);
+                updateActivity(activities);
+                updateTasks(tasks);
+                
+                document.getElementById('last-synced').textContent = new Date().toLocaleTimeString();
+            } catch (error) {
+                showError('Failed to refresh: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Refresh';
+            }
+        }
+        
+        // Initialize
+        if (initSupabase()) {
+            refreshData();
+            // Auto-refresh every 30 seconds
+            setInterval(refreshData, 30000);
+            
+            // Subscribe to realtime updates
+            supabase.channel('public:session_status')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'session_status' }, payload => {
+                    console.log('Realtime update:', payload);
+                    refreshData();
+                })
+                .subscribe();
+        }
+    </script>
+</body>
+</html>
