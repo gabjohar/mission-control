@@ -340,17 +340,17 @@
     
     <script>
         // Supabase configuration - you'll fill this in after creating your project
-        const SUPABASE_URL = 'https://supabase.com/dashboard/project/uywkexvslkpllgumojyv';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5d2tleHZzbGtwbGxndW1vanl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1MzAzMTcsImV4cCI6MjA5MTEwNjMxN30.wyiMFNNmMCFx6nteraD6Q0qpVaSpeH7481I7H-IIS2s';
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
         
-        let supabase;
+        let dbClient;
         
         function initSupabase() {
             if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
                 showError('Dashboard not configured. Please set your Supabase URL and anon key in the script.');
                 return false;
             }
-            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
             return true;
         }
         
@@ -372,9 +372,9 @@
         }
         
         async function fetchSessionStatus() {
-            if (!supabase) return null;
+            if (!dbClient) return null;
             
-            const { data, error } = await supabase
+            const { data, error } = await dbClient
                 .from('session_status')
                 .select('*')
                 .order('created_at', { ascending: false })
@@ -390,9 +390,9 @@
         }
         
         async function fetchActivity() {
-            if (!supabase) return [];
+            if (!dbClient) return [];
             
-            const { data, error } = await supabase
+            const { data, error } = await dbClient
                 .from('activity_log')
                 .select('*')
                 .order('created_at', { ascending: false })
@@ -407,9 +407,9 @@
         }
         
         async function fetchTasks() {
-            if (!supabase) return [];
+            if (!dbClient) return [];
             
-            const { data, error } = await supabase
+            const { data, error } = await dbClient
                 .from('scheduled_tasks')
                 .select('*')
                 .order('next_run', { ascending: true });
@@ -569,7 +569,7 @@
             setInterval(refreshData, 30000);
             
             // Subscribe to realtime updates
-            supabase.channel('public:session_status')
+            dbClient.channel('public:session_status')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'session_status' }, payload => {
                     console.log('Realtime update:', payload);
                     refreshData();
